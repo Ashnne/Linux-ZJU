@@ -1,0 +1,340 @@
+# 简单的命令行编辑器的实现
+# 3190100833 吴杰枫
+
+
+# 这是一个显示函数，可以接受三个变量，文本数组，插入位置，插入数组（后面两个可以缺省
+
+show()
+{
+	# 先把变量引进，方便后续使用，分别为SOURCE（文本数组），INSERT（插入数组），NUMBER(插入位置，从1开始计数),COUNT(计数变量，用于插入),COUNT2(计数变量，用于提示当前字符串所在位置).INSERTLENGTH(插入数组长度)
+	SOURCE=$1
+	INSERT=$2
+	NUMBER=$3
+	COUNT=0
+	COUNT2=1
+	INSERTLENGTH=${#INSERT[*]}
+
+	# 判断一下，如果插入位置为缺省，就将插入位置定义为-1,跳过插入
+	if ( test ! $NUMBER )
+	then
+		((NUMBER=-1))
+	fi
+
+	# 开始输出SOURCE 文本数组中的内容，用for的迭代
+	for((a=0;a<=LENGTH;a++))
+	do
+		# 这里通过COUNT判断一下是否到了输入位置，如果是，就录入插入数组
+		if test $[COUNT] -eq $[NUMBER]
+		then
+			# 这里也是用for迭代输出插入数组
+			for((b=1;b<INSERTLENGTH;b++))
+			do
+				echo "$COUNT2 ${INSERT[$b]}"
+				# 每一次输出都要自增
+				((COUNT2++))
+			done
+		fi
+
+		# 这里就是正常的录输出文本数组了
+		echo "$COUNT2 ${TEXT[$a]}"
+		# 每一次输出都要自增
+		((COUNT++))
+		((COUNT2++))
+	done
+}
+
+
+# 这是一个一般界面，即普通模式，也是主界面，用于连接各种模式，一般显示是查看文本
+
+Interface()
+{
+	# 首先用while true循环不断IO键盘
+	while true
+	do
+		# clear清场
+		clear
+		# 这个首先是对文本的一个读取
+		show "${TEXT[*]}"
+		# 然后是操作的提示
+		echo "按p进入普通录入模式"
+		echo "按i再输入数字n回车后开始修改第n行内容"
+		echo "按u再输入数字n回车后开始从第n行开始插入录入"
+		echo "按d再输入数字n回车后删除第n行"
+
+		# 其次就是对命令的读取了,注意，这里仅读取一个字符
+		read -n 1 COMMAND
+		case $COMMAND in
+			p)
+				# 如果是p普通录入模式，则开始调用insertNormal函数
+				insertNormal
+			;;
+			i)
+				# 如果是i修改录入模式，则先读取NUMBER变量后开始调用change函数
+				echo ""
+				read -p "请输入想要修改的行数:   " NUMBER
+				change $NUMBER
+			;;
+			u)
+				# 如果是u插入录入模式，则先读取NUMBER变量后开始调用insertSpecial函数
+				echo ""
+				read -p "请输入想要从第几行开始改变:   " NUMBER
+				insertSpecial $NUMBER
+			;;
+			d)
+				# 如果是d删除函数，则先读取NUMBER变量后开始调用delete函数
+				echo ""
+				read -p "请输入想要删除的行数:   " NUMBER
+				delete $NUMBER
+			;;
+			q)
+				# 如果是q退出命令，则再次读取字符确定后续命令
+				read COMMAND
+				if test $COMMAND = '!'
+				then
+					# 如果是！字符，说明是直接退出，放弃文本
+					echo "exit without any operate"
+					exit 0
+				else
+					# 如果是其他字符，就算保存
+					store $COMMAND
+				fi
+	
+			;;
+			*)
+				# 如果是其他字符，命令缺省
+				:
+			;;
+		# 收工
+		esac
+	done
+}			
+
+
+
+# 这是一个录入界面，是仅限于在结尾段录入的一个模式
+
+insertNormal()
+{
+	# 首先是一个while true确保实时键盘、显示屏IO
+	while true
+	do
+		# 先清屏
+		clear
+		# 输出文本内容
+		show "${TEXT[*]}"
+		# 读取键盘的输入（用read）
+		read -e TEXT[$LENGTH+1]
+		# 判断是否为：quit命令，如果是的话退出循环
+		if [[ ${TEXT[$LENGTH+1]} == ":quit" ]]
+		then
+			unset TEXT[$LENGTH+1]
+			break
+		fi
+		# 正常收尾的话，数组长度是增加了的
+		((LENGTH++))
+	done
+}
+
+# 测试
+# TEXT=( hello world )
+# LENGTH=2
+# insertNormal
+# echo ${TEXT[*]}
+
+# 这是一个修改录入模式，是修改第n行的模式
+
+change()
+{
+	# 首先把NUMBER变量读入
+	ALERTNUMBER=$1
+	# clear清场
+	clear
+	# 读取以前的值作为提示
+	echo "before: ${TEXT[ALERTNUMBER-1]}"
+	# 用read的方式将这个变量覆盖，同时给出提示
+	read -p "the contain you want to alert:" -e TEXT[$ALERTNUMBER-1]
+}
+
+# 测试点
+# TEXT=( hello world yes no )
+# LENGTH=4
+# change 2
+# echo ${TEXT[*]}
+
+# 这是一个辅助函数，负责将INSERT数组插入到TEXT数组中
+
+insert()
+{
+	
+	# 首先将需要后移的部分复制到INSERT数组结尾
+	# 先确定INSERT数组的长度
+	INSERTLENGTH=${#INSERT[*]}
+	# 开始移动
+	for((a=INSERTNUMBER-1;a<LENGTH;a++))
+	do
+		# 将TEXT数组的移动到INSERT的最后
+		INSERT[${a}+${INSERTLENGTH}-${INSERTNUMBER}+1]=${TEXT[$a]}
+	done
+	
+	# 再将整个INSERT数组接到TEXT数组后面
+	# 先更新确定INSERT数组的长度
+	INSERTLENGTH=${#INSERT[*]}
+	for((a=1;a<INSERTLENGTH;a++))
+	do
+		# 接尾
+		TEXT[${INSERTNUMBER}+${a}-2]=${INSERT[$a]}
+	done
+	# 最后把LENGTH更新一下
+	LENGTH=${#TEXT[*]}
+}
+
+# 这是一个插入录入模式，是从第n行开始插入录入
+
+insertSpecial()
+{
+	# 首先把NUMBER变量读入
+	INSERTNUMBER=$1
+	# 建立插入临时字符串
+	INSERTCOUNT=1
+	# 初始化临时字符串
+	unset INSERT
+
+	# 进入while true循环持续IO键盘
+	while true
+	do
+		# clear 清场
+		clear
+		# 提示字符串
+		INSERT[$INSERTCOUNT]="ATTENTION:now_you_are_inserting_here"
+		# 首先显示现在的内容
+		show "${TEXT[*]}" "${INSERT[*]}" "$INSERTNUMBER"
+		
+		# 其次空一行后开始读取输入内容
+		echo ""
+		read -e INSERT[$INSERTCOUNT]
+		# 判断是否为：quit命令，如果是的话退出循环
+		if [[ ${INSERT[$INSERTCOUNT]} == ":quit" ]]
+		then
+			# 把：quit命令行删去
+			unset INSERT[$INSERTCOUNT]
+			# 调用insert函数把INSERT数组插入TEXT
+			insert 
+			break
+		fi
+		# 读取后INSERTCOUNT自增
+		((INSERTCOUNT++))
+	done
+}
+
+# 测试
+# TEXT=( hello world yes no )
+# LENGTH=4
+# insertSpecial 2 
+# echo ${TEXT[*]}
+
+# 这是一个删除函数，将第n行之后的数组内容整体前移
+
+delete()
+{
+	# 首先把NUMBER变量读入
+	DELETENUMBER=$1
+	# 读取数组长度
+	LENGTH=${#TEXT[*]}
+	# 进行一个循环前移
+	for((a=DELETENUMBER;a<LENGTH;a++))
+	do
+		# 把每个数组元素前移
+		TEXT[$a-1]=${TEXT[$a]}
+	done
+	# 把最后一个元素删去
+	unset TEXT[$LENGTH-1]
+}
+
+# 测试
+# TEXT=( hello world yes no )
+# LENGTH=4
+# delete 2 
+# echo ${TEXT[*]}
+
+# 这是一个存储函数，将文本内容存储到文件名为file-name的变量中，变量缺省如果是打开文件的话就直接保存到源文件，否则报错
+
+store()
+{
+	# 首先把file-name变量读入
+	FILENAME=$1
+	# 判断是否为缺省，若有内容就保存到全局变量SOURCENAME中
+	if test $FILENAME
+	then
+		
+		# 若有内容就保存到全局变量SOURCENAME中
+		SOURCENAME=$FILENAME
+	elif test ! $SOURCENAME
+	then
+		# 若没有内容就判断是否为打开文件，不是的话就报错
+		echo "there is not exist file-name or source-file"
+		return
+	# 如果不是上述情况，即为默认保存在源文件，不需要操作
+	fi
+
+	# 保存操作，运用迭代把TEXT数组里的内容全部保存到文件中
+	# 先刷新文件内容（如果文件不存在则创建文件）
+	touch $SOURCENAME
+	cat /dev/null > $SOURCENAME
+	# 迭代录入内容
+	for i in ${TEXT[*]}
+	do
+		echo $i >>$SOURCENAME
+	done
+	# 完成提示
+	echo "the contain has been stored in $SOURCENAME"
+	# 退出shell脚本
+	exit 0
+}
+
+# 测试
+# TEXT=( hello world yes no )
+# SOURCENAME=TEMP
+# store TEMP2
+
+
+
+
+# 开始编写主脚本
+
+# clear清场
+clear
+# 首先读取文件名（如果有的话，新建即录入空字符串，并提示）
+read -p "请输入想打开的文件名（新建文件直接回车即可）" SOURCENAME
+
+# 首先定义主变量
+TEXT=()
+LENGTH=0
+
+# 判断一下是否文件  
+# 首先判断是否为空，如果是空的话就不用管了
+if test ! $SOURCENAME
+then
+	:
+# 如果非空的话，且文件长度非0,就录入
+elif test -s $SOURCENAME
+then
+	# 有的话就预先录入一下
+	# 这里用while迭代读取，用重定向读取文件
+	while read line
+	do
+		TEXT[$LENGTH]=$line
+		((LENGTH++))
+	done < $SOURCENAME
+# 否则就不操作
+else
+	:
+fi
+
+# 测试读取情况
+# echo $LENGTH
+# echo ${TEXT[*]}
+# echo $SOURCENAME
+
+# 进入起始界面操作
+Interface
+
