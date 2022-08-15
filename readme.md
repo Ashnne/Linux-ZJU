@@ -11,6 +11,6 @@
 
 如果不是选了课程而是想提前学Linux做做作业，需要资料的话
 或者是代码有看不懂的想问的话
-可以email我：wujiefeng0223@icloud.com
+可以email我：jaymaple0223@gmail.com
 老师课件未经允许只能给ZJU同学
 其他资料或者疑惑我看到都会满足的
